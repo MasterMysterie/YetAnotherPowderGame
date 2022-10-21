@@ -15,17 +15,17 @@ struct Particle {
     double x, y;
     double vel_x, vel_y;
     bool move;
-    bool through_function;
 };
 
 struct Particle* gridmap[s_width * s_height];
+struct Particle* gridmap_clone[s_width * s_height];
 
 olc_Pixel type_colours[2];
 
 void mouseInput();
 void keyInput();
 void updateParticles();
-bool moveParticle();
+void moveParticle();
 
 int brush_radius = 1;
 enum ParticleType brush_element = SAND;
@@ -70,9 +70,9 @@ void updateParticles() {
 
     for (int i = 0; i < s_width * s_height; i++) {
         if (gridmap[i] == NULL) {
+            gridmap_clone[i] = gridmap[i];
             continue;
         }
-        gridmap[i]->through_function = false;
         int random_side = (rand() % 2) * 2 - 1;
         switch (gridmap[i]->type) {
         case SAND:
@@ -137,61 +137,41 @@ void updateParticles() {
             }
             break;
         }
+        gridmap_clone[i] = gridmap[i];
     }
     for (int i = 0; i < s_height*s_width; i++) {
         if (gridmap[i] == NULL) {
             continue;
         }
-        moveParticle(i);
+        if (gridmap[i]->move) {
+            moveParticle(i);
+        }
     }
 }
 
 int counter = 0;
 
-bool moveParticle(int i) {
-    //gridmap[i]->through_function = true;
-    counter++;
-    //printf("counter: %d\n", counter);
+void moveParticle(int i) {
     int next_i = (int)floor(gridmap[i]->y * s_width + gridmap[i]->x);
     if (next_i > 262144) {
-        printf("%lf %lf\n", gridmap[i]->x, gridmap[i]->y);
-        gridmap[i]->through_function = true;
+        printf("out of bounds: %lf %lf\n", gridmap[i]->x, gridmap[i]->y);
         gridmap[i]->move = false;
-        counter--;
-        return false;
-    }
-    if (!gridmap[i]->move || gridmap[i]->through_function) {
-        counter--;
-        return false;
+        return;
     }
     if (gridmap[next_i] != NULL) {
-        gridmap[i]->through_function = true;
-        if (moveParticle(next_i)) {
-            gridmap[i]->move = false;
-            gridmap[next_i] = gridmap[i];
-            gridmap[i] = NULL;
-            counter--;
-            return true;
-        }
-        else {
-            gridmap[i]->move = false;
-            gridmap[i]->x = i % s_width;
-            gridmap[i]->y = i / s_width;
-            counter--;
-            return false;
-        }
+        gridmap[i]->move = false;
+        gridmap[i]->x = i % s_width;
+        gridmap[i]->y = i / s_width;
+        return;
     }
     else {
-        gridmap[i]->through_function = true;
         gridmap[i]->move = false;
         gridmap[next_i] = gridmap[i];
         gridmap[i] = NULL;
-        counter--;
-        return true;
+        return;
     }
-    counter--;
-    gridmap[i]->move = false;
-    return false;
+    printf("something has gone really wrong if you're seeing this");
+    return;
 }
 
 void keyInput() {
@@ -207,6 +187,11 @@ void keyInput() {
     else if (PGE_GetKey(olc_K2).bPressed) {
         brush_element = WATER;
     }
+    if (PGE_GetKey(olc_R).bPressed) {
+        for (int i = 0; i < s_width * s_height; i++) {
+            gridmap[i] = NULL;
+        }
+    }
 }
 
 void mouseInput() {
@@ -218,7 +203,7 @@ void mouseInput() {
                     int y = PGE_GetMouseY() + dy;
                     int x = PGE_GetMouseX() + dx;
                     int index = y * s_width + x;
-                    if (index >= sizeof * gridmap[0] * s_width * s_height || index < 0) {
+                    if (x >= s_width || x < 0 || y >= s_height || y < 0) {
                         continue;
                     }
                     if (gridmap[index] == NULL) {
